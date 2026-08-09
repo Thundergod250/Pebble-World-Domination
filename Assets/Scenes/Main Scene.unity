@@ -225,9 +225,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 425f86f278f78a04b92836f578dc3ad6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
-  moveSpeed: 5
+  baseSpeed: 5
+  runningMultiplier: 1.5
   jumpHeight: 2
   gravity: -29.43
+  lookSensitivity: 8
+  cameraTransform: {fileID: 1883133686}
 --- !u!143 &84713682
 CharacterController:
   m_ObjectHideFlags: 0
@@ -286,6 +289,14 @@ MonoBehaviour:
       m_Calls: []
     m_ActionId: 1efeea9b-878f-494e-ab6a-2125f66c07c7
     m_ActionName: 'Player/Movement[/Keyboard/w,/Keyboard/s,/Keyboard/a,/Keyboard/d]'
+  - m_PersistentCalls:
+      m_Calls: []
+    m_ActionId: 6b70f65a-5f3a-4e6c-aea0-de7116b20c2f
+    m_ActionName: 'Player/Look[/Mouse/delta]'
+  - m_PersistentCalls:
+      m_Calls: []
+    m_ActionId: 05902c1d-60e8-4399-83b8-9e2e84dda3cd
+    m_ActionName: 'Player/Run[/Keyboard/shift]'
   m_NeverAutoSwitchControlSchemes: 0
   m_DefaultControlScheme: 
   m_DefaultActionMap: Player

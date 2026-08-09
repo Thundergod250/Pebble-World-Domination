@@ -5,24 +5,33 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(PlayerInput))]
 public class PlayerMovement : MonoBehaviour
 {
-    public float moveSpeed = 5f;
+    public float baseSpeed = 5f;
+    public float runningMultiplier = 1.5f; // public multiplier for running
     public float jumpHeight = 2f;
     public float gravity = -9.81f;
-    
+    public float lookSensitivity = 2f;
+
+    [SerializeField] private Transform cameraTransform; // assign your Camera in Inspector
+
     private CharacterController controller;
     private PlayerInput playerInput;
     private InputAction moveAction;
     private InputAction jumpAction;
+    private InputAction lookAction;
+    private InputAction runAction; // new Run action
+
     private Vector3 velocity;
+    private float xRotation = 0f; // pitch
 
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
         playerInput = GetComponent<PlayerInput>();
 
-        // Grab actions directly from the Player map
         moveAction = playerInput.actions["Movement"];
         jumpAction = playerInput.actions["Jump"];
+        lookAction = playerInput.actions["Look"];
+        runAction = playerInput.actions["Run"]; // Shift binding
 
         jumpAction.performed += OnJump;
     }
@@ -31,11 +40,22 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
-        // Read movement input (WASD → Vector2)
+        // Movement (WASD)
         Vector2 input = moveAction.ReadValue<Vector2>();
-        Vector3 move = new Vector3(input.x, 0, input.y);
+        Vector3 move = transform.right * input.x + transform.forward * input.y;
 
-        controller.Move(move * (moveSpeed * Time.deltaTime));
+        // Speed calculation
+        float currentSpeed = baseSpeed;
+
+        // Running Speed
+        if (runAction != null && runAction.ReadValue<float>() > 0)
+            currentSpeed += baseSpeed * runningMultiplier;
+
+        // Other Bonus Speed (future content)
+        float otherBonusSpeed = 0f;
+        currentSpeed += otherBonusSpeed;
+
+        controller.Move(move * (currentSpeed * Time.deltaTime));
 
         // Gravity
         if (controller.isGrounded && velocity.y < 0)
@@ -43,6 +63,17 @@ public class PlayerMovement : MonoBehaviour
 
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
+
+        // Look (Mouse Delta → Vector2)
+        Vector2 lookInput = lookAction.ReadValue<Vector2>() * (lookSensitivity * Time.deltaTime);
+
+        // Horizontal rotation (yaw)
+        transform.Rotate(Vector3.up * lookInput.x);
+
+        // Vertical rotation (pitch)
+        xRotation -= lookInput.y;
+        xRotation = Mathf.Clamp(xRotation, -80f, 80f); // prevent flipping
+        cameraTransform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
     }
 
     private void OnJump(InputAction.CallbackContext ctx)
