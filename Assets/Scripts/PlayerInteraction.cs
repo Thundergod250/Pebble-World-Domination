@@ -6,10 +6,10 @@ public class PlayerInteraction : MonoBehaviour
 {
     public float interactRange = 3f;
     public LayerMask interactLayer; // assign layer for items
+    [SerializeField] private UI_InteractionUI interactionUI; // link your UI script in Inspector
 
     private PlayerInput playerInput;
     private InputAction interactAction;
-
     private Camera cam;
 
     private void Awake()
@@ -21,10 +21,7 @@ public class PlayerInteraction : MonoBehaviour
         interactAction.performed += OnInteract;
     }
 
-    private void OnDestroy()
-    {
-        interactAction.performed -= OnInteract;
-    }
+    private void OnDestroy() => interactAction.performed -= OnInteract;
 
     private void Update()
     {
@@ -32,13 +29,11 @@ public class PlayerInteraction : MonoBehaviour
         Ray ray = new Ray(cam.transform.position, cam.transform.forward);
         if (Physics.Raycast(ray, out RaycastHit hit, interactRange, interactLayer))
         {
-            if (hit.collider.TryGetComponent<Item>(out Item item))
-            {
-                // Show item name (for now just Debug.Log, later UI)
-                Debug.Log($"Looking at: {item.itemName}");
-            }
+            if (hit.collider.TryGetComponent<Item>(out Item item)) 
+                interactionUI.ShowText($"Press E to interact with {item.itemName}");
         }
-
+        else
+            interactionUI.HideText();
     }
 
     private void OnInteract(InputAction.CallbackContext ctx)
@@ -46,11 +41,23 @@ public class PlayerInteraction : MonoBehaviour
         Ray ray = new Ray(cam.transform.position, cam.transform.forward);
         if (Physics.Raycast(ray, out RaycastHit hit, interactRange, interactLayer))
         {
-            Item item = hit.collider.GetComponent<Item>();
-            if (item != null)
+            if (hit.collider.TryGetComponent(out Item item))
             {
                 item.Interact();
+                interactionUI.HideText();
             }
         }
+    }
+
+    // Draw the ray in Scene view
+    private void OnDrawGizmos()
+    {
+        if (cam == null) cam = Camera.main;
+        if (cam == null) return;
+
+        Gizmos.color = Color.green;
+        Vector3 start = cam.transform.position;
+        Vector3 end = start + cam.transform.forward * interactRange;
+        Gizmos.DrawLine(start, end);
     }
 }
