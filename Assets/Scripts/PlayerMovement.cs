@@ -1,84 +1,82 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-[RequireComponent(typeof(CharacterController))]
-[RequireComponent(typeof(PlayerInput))]
-public class PlayerMovement : MonoBehaviour
+public class PlayerMovementRigidbody : MonoBehaviour
 {
+    [Header("Movement Settings")]
     public float baseSpeed = 5f;
-    public float runningMultiplier = 1.5f; // public multiplier for running
+    public float runningMultiplier = 1.5f;
     public float jumpHeight = 2f;
-    public float gravity = -9.81f;
-    public float lookSensitivity = 2f;
+    public float gravityMultiplier = 2f;
 
-    [SerializeField] private Transform cameraTransform; // assign your Camera in Inspector
+    [Header("References")]
+    [SerializeField] private Transform cameraTransform; // assign Main Camera (with Cinemachine Brain)
 
-    private CharacterController controller;
+    private Rigidbody rb;
     private PlayerInput playerInput;
     private InputAction moveAction;
     private InputAction jumpAction;
-    private InputAction lookAction;
-    private InputAction runAction; // new Run action
+    private InputAction runAction;
 
-    private Vector3 velocity;
-    private float xRotation = 0f; // pitch
+    private bool isGrounded;
 
     private void Awake()
     {
-        controller = GetComponent<CharacterController>();
-        playerInput = GetComponent<PlayerInput>();
+        rb = GetComponent<Rigidbody>();
+        rb.constraints = RigidbodyConstraints.FreezeRotation; // prevent physics spin
 
+        playerInput = GetComponent<PlayerInput>();
         moveAction = playerInput.actions["Movement"];
         jumpAction = playerInput.actions["Jump"];
-        lookAction = playerInput.actions["Look"];
-        runAction = playerInput.actions["Run"]; // Shift binding
+        runAction = playerInput.actions["Run"];
 
         jumpAction.performed += OnJump;
     }
 
     private void OnDestroy() => jumpAction.performed -= OnJump;
 
-    private void Update()
+    private void FixedUpdate()
     {
-        // Movement (WASD)
+        // --- Ground check ---
+        isGrounded = Physics.Raycast(transform.position, Vector3.down, 1.1f);
+
+        // --- Movement relative to camera ---
         Vector2 input = moveAction.ReadValue<Vector2>();
-        Vector3 move = transform.right * input.x + transform.forward * input.y;
 
-        // Speed calculation
+        Vector3 camForward = cameraTransform.forward;
+        Vector3 camRight = cameraTransform.right;
+        camForward.y = 0; camRight.y = 0;
+        camForward.Normalize(); camRight.Normalize();
+
+        Vector3 move = camForward * input.y + camRight * input.x;
+
         float currentSpeed = baseSpeed;
-
-        // Running Speed
         if (runAction != null && runAction.ReadValue<float>() > 0)
-            currentSpeed += baseSpeed * runningMultiplier;
+            currentSpeed *= runningMultiplier;
 
-        // Other Bonus Speed (future content)
-        float otherBonusSpeed = 0f;
-        currentSpeed += otherBonusSpeed;
+        Vector3 targetVelocity = move * currentSpeed;
+        Vector3 velocityChange = targetVelocity - rb.linearVelocity;
+        velocityChange.y = 0; // don’t affect vertical
+        rb.AddForce(velocityChange, ForceMode.VelocityChange);
 
-        controller.Move(move * (currentSpeed * Time.deltaTime));
+        // --- Character rotation ---
+        if (move != Vector3.zero)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(move);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 10f * Time.fixedDeltaTime);
+        }
 
-        // Gravity
-        if (controller.isGrounded && velocity.y < 0)
-            velocity.y = -2f;
-
-        velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
-
-        // Look (Mouse Delta → Vector2)
-        Vector2 lookInput = lookAction.ReadValue<Vector2>() * (lookSensitivity * Time.deltaTime);
-
-        // Horizontal rotation (yaw)
-        transform.Rotate(Vector3.up * lookInput.x);
-
-        // Vertical rotation (pitch)
-        xRotation -= lookInput.y;
-        xRotation = Mathf.Clamp(xRotation, -80f, 80f); // prevent flipping
-        cameraTransform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+        // --- Extra gravity ---
+        if (!isGrounded)
+            rb.AddForce(Physics.gravity * gravityMultiplier, ForceMode.Acceleration);
     }
 
     private void OnJump(InputAction.CallbackContext ctx)
     {
-        if (controller.isGrounded)
-            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+        if (isGrounded)
+        {
+            float jumpVelocity = Mathf.Sqrt(jumpHeight * -2f * Physics.gravity.y);
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpVelocity, rb.linearVelocity.z);
+        }
     }
 }
